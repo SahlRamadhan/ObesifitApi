@@ -12,10 +12,11 @@
     http://localhost:4000/users/:id
 
 3. API Post Users
-    Post untuk users
+
+    `Post untuk users`
     http://localhost:4000/auth/register/user
 
-    Post untuk dokter
+    `Post untuk dokter`
     http://localhost:4000/auth/register/dokter
 
 4. API Get ByID
