@@ -57,7 +57,7 @@ export const getUserById = async (req, res) => {
 
 // Controller post
 export const createUser = async (req, res) => {
-  const { name, email, address, telepon, password, confirmPassword, jenis_profesi } = req.body;
+  const { name, email, telepon, password, confirmPassword, jenis_profesi } = req.body;
 
   // Cek role_id berdasarkan rute
   const isDoctor = req.originalUrl.includes("dokter");
@@ -117,7 +117,6 @@ export const createUser = async (req, res) => {
     const newUser = await userModels.create({
       name,
       email,
-      address,
       telepon,
       role_id,
       password: hashPassword,
@@ -170,7 +169,6 @@ export const updateUser = async (req, res) => {
     const updatedData = {
       name: req.body.name || user.name,
       email: req.body.email || user.email,
-      address: req.body.address || user.address,
       telepon: req.body.telepon || user.telepon,
       password: hashPassword.newPassword || user.password,
       images: req.files && req.files.images ? path.basename(req.files.images[0].path) : user.images, // Pastikan ini benar

@@ -20,9 +20,9 @@ export const loginUser = async (req, res) => {
     const match = await bcrypt.compare(req.body.password, users[0].password);
     if (!match) return res.status(400).json({ msg: "Wrong Password" });
 
-    const { id, name, email, address, role_id, images, jenis_profesi, sertifikat } = users[0];
-    const accessToken = jwt.sign({ userId: id, name, email, address, role_id, images, jenis_profesi, sertifikat }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "30s" });
-    const refreshToken = jwt.sign({ userId: id, name, email, address, role_id, images, jenis_profesi, sertifikat }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
+    const { id, name, email, role_id, images, jenis_profesi, sertifikat } = users[0];
+    const accessToken = jwt.sign({ userId: id, name, email, role_id, images, jenis_profesi, sertifikat }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ userId: id, name, email, role_id, images, jenis_profesi, sertifikat }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
 
     await User.update(
       { refreshToken: refreshToken },
