@@ -17,10 +17,6 @@ const Article = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: false,
     },
-    slug: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
     content: {
       type: DataTypes.TEXT,
       allowNull: false,
@@ -33,8 +29,6 @@ const Article = sequelize.define(
   }
 );
 
-
-
 export const syncDatabase = async () => {
   try {
     await Article.sync();
@@ -45,6 +39,5 @@ export const syncDatabase = async () => {
 };
 
 syncDatabase();
-
 
 export default Article;

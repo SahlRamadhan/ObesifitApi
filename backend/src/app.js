@@ -7,7 +7,7 @@ import cors from "cors";
 import userRoutes from "./routes/user.js";
 import authRoutes from "./routes/auth.js";
 import artikel from "./routes/artikel.js";
-import ratting from "./routes/ratting.js";
+import video from "./routes/video.js";
 
 dotenv.config();
 const port = process.env.PORT;
@@ -27,7 +27,7 @@ app.use(
 app.use("/users", userRoutes);
 app.use("/auth", authRoutes);
 app.use("/artikel", artikel);
-app.use("/ratting", ratting);
+app.use("/video", video);
 app.post("/upload", (req, res) => { });
 
 // listen

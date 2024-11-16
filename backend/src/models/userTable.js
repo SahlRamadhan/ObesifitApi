@@ -33,10 +33,6 @@ const User = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
-    address: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
     telepon: {
       type: DataTypes.STRING(15),
       allowNull: true,
@@ -66,6 +62,10 @@ const User = sequelize.define(
       allowNull: true,
     },
     isVerified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    isVerifiedByAdmin: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },

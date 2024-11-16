@@ -22,8 +22,6 @@ const Role = sequelize.define(
   }
 );
 
-
-
 // Sinkronisasi model dengan database
 export const syncDatabase = async () => {
   try {

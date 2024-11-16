@@ -124,9 +124,10 @@ export const createUser = async (req, res) => {
       images,
       jenis_profesi: isDoctor ? jenis_profesi : null,
       sertifikat: isDoctor ? sertifikat : null,
-      otp,
-      otpExpires,
-      isVerified: false,
+      otp: isDoctor ? null : otp,
+      otpExpires: isDoctor ? null : otpExpires,
+      isVerified: isDoctor ? true : false,
+      isVerifiedByAdmin: false,
     });
 
     await SendOtpEmail(email, otp);
@@ -193,6 +194,35 @@ export const updateUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: "Update Data Failed",
+      serverMessage: error.message,
+    });
+  }
+};
+
+export const verifyDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await userModels.findOne({ where: { id, role_id: 3 } }); // Pastikan role_id 3 adalah dokter
+
+    if (!user) {
+      return res.status(404).json({
+        status: 404,
+        message: "Dokter tidak ditemukan atau bukan role dokter",
+      });
+    }
+
+    // Update status verifikasi oleh admin
+    user.isVerifiedByAdmin = true;
+    await user.save();
+
+    res.status(200).json({
+      status: 200,
+      message: "Dokter berhasil diverifikasi oleh admin",
+      data: user,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Verifikasi dokter gagal",
       serverMessage: error.message,
     });
   }

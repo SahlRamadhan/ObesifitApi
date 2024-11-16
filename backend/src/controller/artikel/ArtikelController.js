@@ -1,12 +1,44 @@
 import Article from "../../models/artikelTable.js";
-import Gambar from "../../models/gambarTable.js";
-import path from "path";
+import ArticleFile from "../../models/artikelFileTable.js";
 import fs from "fs";
+import { Sequelize } from "sequelize";
 
-export const getArticles = async (req, res) => {
+// Create Article with Images
+export const createArticle = async (req, res) => {
+  try {
+    const { judul, sub_judul, content } = req.body;
+
+    const images = req.files.images ? req.files.images[0].path : null;
+    const thumbnail = req.files.thumbnail ? req.files.thumbnail[0].path : null;
+
+    const articleData = await Article.create({
+      judul,
+      sub_judul,
+      content,
+    });
+
+    const articleFile = await ArticleFile.create({
+      article_id: articleData.id,
+      images,
+      thumbnail,
+    });
+
+    res.status(201).json({ message: "Article created successfully", articleData, articleFile });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to create article", error });
+  }
+};
+
+export const getAllArticles = async (req, res) => {
   try {
     const articles = await Article.findAll({
-      include: [{ model: Gambar, as: "gambar" }],
+      include: [
+        {
+          model: ArticleFile,
+          as: "articles_files",
+          attributes: ["id", "images", "thumbnail"],
+        },
+      ],
     });
     res.status(200).json(articles);
   } catch (error) {
@@ -14,16 +46,23 @@ export const getArticles = async (req, res) => {
   }
 };
 
-// Get Article by Slug
-export const getArticleBySlug = async (req, res) => {
-  const { slug } = req.params;
+export const getArticleById = async (req, res) => {
   try {
+    const { id } = req.params;
     const article = await Article.findOne({
-      where: { slug },
-      include: [{ model: Gambar, as: "gambar" }],
+      where: { id },
+      include: [
+        {
+          model: ArticleFile,
+          as: "articles_files",
+          attributes: ["id", "images", "thumbnail"],
+        },
+      ],
     });
 
-    if (!article) return res.status(404).json({ message: "Article not found" });
+    if (!article) {
+      return res.status(404).json({ message: "Article not found" });
+    }
 
     res.status(200).json(article);
   } catch (error) {
@@ -31,63 +70,40 @@ export const getArticleBySlug = async (req, res) => {
   }
 };
 
-// Create Article with Images
-export const createArticle = async (req, res) => {
-  const { judul, sub_judul, slug, content } = req.body;
+export const updateArticle = async (req, res) => {
   try {
-    const article = await Article.create({ judul, sub_judul, slug, content });
+    const { id } = req.params;
+    const { judul, sub_judul, content } = req.body;
 
-    // Menyimpan gambar jika ada
-    if (req.files && req.files.length > 0) {
-      const imagesData = req.files.map((file, index) => ({
-        article_id: article.id,
-        url: file.path,
-        deskripsi: req.body.deskripsi ? req.body.deskripsi[index] : null,
-        urutan: index + 1,
-      }));
-      await Gambar.bulkCreate(imagesData);
+    const article = await Article.findByPk(id);
+    if (!article) {
+      return res.status(404).json({ message: "Article not found" });
     }
 
-    res.status(201).json({ message: "Article created successfully", article });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to create article", error });
-  }
-};
+    article.judul = judul || article.judul;
+    article.sub_judul = sub_judul || article.sub_judul;
+    article.content = content || article.content;
 
-// Update Article and Replace Images
-export const updateArticle = async (req, res) => {
-  const { id } = req.params;
-  const { judul, sub_judul, slug, content } = req.body;
-
-  try {
-    const article = await Article.findByPk(id, { include: [{ model: Gambar, as: "gambar" }] });
-    if (!article) return res.status(404).json({ message: "Article not found" });
-
-    // Update article data
-    article.judul = judul;
-    article.sub_judul = sub_judul;
-    article.slug = slug;
-    article.content = content;
     await article.save();
 
-    // Jika ada file gambar baru yang diunggah, hapus gambar lama dan simpan gambar baru
-    if (req.files && req.files.length > 0) {
-      // Hapus gambar lama dari folder
-      article.gambar.forEach((gambar) => {
-        if (fs.existsSync(gambar.url)) fs.unlinkSync(gambar.url);
-      });
+    if (req.files) {
+      const articleFile = await ArticleFile.findOne({ where: { article_id: id } });
 
-      // Hapus data gambar lama dari database
-      await Gambar.destroy({ where: { article_id: id } });
+      if (!articleFile) {
+        return res.status(404).json({ message: "Article file not found" });
+      }
 
-      // Simpan gambar baru ke dalam database
-      const imagesData = req.files.map((file, index) => ({
-        article_id: id,
-        url: file.path,
-        deskripsi: req.body.deskripsi ? req.body.deskripsi[index] : null,
-        urutan: index + 1,
-      }));
-      await Gambar.bulkCreate(imagesData);
+      if (req.files.images) {
+        fs.unlinkSync(articleFile.images); // Delete old images
+        articleFile.images = req.files.images[0].path;
+      }
+
+      if (req.files.thumbnail) {
+        fs.unlinkSync(articleFile.thumbnail); // Delete old thumbnail
+        articleFile.thumbnail = req.files.thumbnail[0].path;
+      }
+
+      await articleFile.save();
     }
 
     res.status(200).json({ message: "Article updated successfully", article });
@@ -96,26 +112,23 @@ export const updateArticle = async (req, res) => {
   }
 };
 
-// Delete Article and Images
 export const deleteArticle = async (req, res) => {
-  const { id } = req.params;
   try {
-    // Mencari artikel beserta gambar yang terkait
-    const article = await Article.findByPk(id, { include: [{ model: Gambar, as: "gambar" }] });
-    if (!article) return res.status(404).json({ message: "Article not found" });
+    const { id } = req.params;
+    const article = await Article.findByPk(id);
+    if (!article) {
+      return res.status(404).json({ message: "Article not found" });
+    }
 
-    // Menghapus gambar dari sistem file
-    article.gambar.forEach((gambar) => {
-      if (fs.existsSync(gambar.url)) {
-        fs.unlinkSync(gambar.url); 
-      }
-    });
+    const articleFile = await ArticleFile.findOne({ where: { article_id: id } });
+    if (articleFile) {
+      // Delete associated files
+      fs.unlinkSync(articleFile.images);
+      fs.unlinkSync(articleFile.thumbnail);
+      await articleFile.destroy();
+    }
 
-    // Menghapus data gambar dari database
-    await Gambar.destroy({ where: { article_id: id } });
-
-    // Menghapus artikel dari database
-    await Article.destroy({ where: { id } });
+    await article.destroy();
 
     res.status(200).json({ message: "Article deleted successfully" });
   } catch (error) {
@@ -123,29 +136,4 @@ export const deleteArticle = async (req, res) => {
   }
 };
 
-
-// Delete All Articles and Images
-export const deleteAllArticles = async (req, res) => {
-  try {
-    // Mengambil semua gambar dari database
-    const allGambar = await Gambar.findAll();
-    
-    // Menghapus gambar dari folder
-    allGambar.forEach((gambar) => {
-      if (fs.existsSync(gambar.url)) {
-        fs.unlinkSync(gambar.url);
-      }
-    });
-
-    // Menghapus semua data gambar dari database
-    await Gambar.destroy({ where: {}, truncate: true });
-
-    // Menghapus semua artikel dari database
-    await Article.destroy({ where: {}, truncate: true });
-
-    res.status(200).json({ message: "All articles and images have been deleted" });
-  } catch (error) {
-    res.status(500).json({ message: "Failed to delete all articles and images", error });
-  }
-};
 

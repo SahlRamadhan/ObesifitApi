@@ -15,6 +15,8 @@ export const loginUser = async (req, res) => {
 
     if (!users[0].isVerified) return res.status(400).json({ msg: "Email belum diverifikasi" });
 
+    if(users[0].role_id === 3 && !users[0].isVerifiedByAdmin) return res.status(400).json({ msg: "Dokter belum diverifikasi oleh admin" });
+
     const match = await bcrypt.compare(req.body.password, users[0].password);
     if (!match) return res.status(400).json({ msg: "Wrong Password" });
 
