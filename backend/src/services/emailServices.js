@@ -42,6 +42,6 @@ export const SendOtpEmail = async (email, otp) => {
 
 export const generateOtp = () => {
   const otp = crypto.randomInt(100000, 999999);
-  const otpExpires = new Date(Date.now() + 1 * 60 * 1000);
+  const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
   return { otp, otpExpires };
 };

@@ -10,6 +10,7 @@ import artikel from "./routes/artikel.js";
 import video from "./routes/video.js";
 import kalkulatorBMI from "./routes/kalkulatorBMI.js";
 import kalkulatorKalori from "./routes/kalkulatorKalori.js";
+import Transaksi from "./routes/transaksi.js";
 
 dotenv.config();
 const port = process.env.PORT;
@@ -32,6 +33,7 @@ app.use("/artikel", artikel);
 app.use("/video", video);
 app.use("/kalkulatorBMI", kalkulatorBMI);
 app.use("/kalkulatorKalori", kalkulatorKalori);
+app.use("/transaksi", Transaksi);
 app.post("/upload", (req, res) => { });
 
 // listen
