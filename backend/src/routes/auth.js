@@ -2,7 +2,7 @@ import express from "express";
 const router = express.Router();
 import { refreshToken } from "../controller/auth/RefreshToken.js";
 import { loginUser, logoutUser } from "../controller/auth/AuthController.js";
-import { verifyOtp, resendOtp, requestResetPassword, resetPassword, verifyResetPassword } from "../middleware/VerifyOtp.js";
+import { verifyOtp, resendOtp, requestResetPassword, resetPassword, verifyResetPassword } from "../controller/auth/VerifyOtp.js";
 import { createUser } from "../controller/auth/usersController.js";
 import upload from "../middleware/multer.js";
 

@@ -1,12 +1,11 @@
 import multer from "multer";
 import path from "path";
 
-// Fungsi untuk menentukan storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const destinations = {
-      images: "public/images",
-      sertifikat: "public/sertifikat",
+      images: path.join(__dirname, "../public/images"),
+      sertifikat: path.join(__dirname, "../public/sertifikat"),
     };
     cb(null, destinations[file.fieldname] || new Error("Unknown field name"));
   },
@@ -20,7 +19,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// Filter untuk file
+
 const fileFilter = (req, file, cb) => {
   const allowedTypes = {
     images: ["image/jpeg", "image/png", "image/jpg"],
@@ -28,11 +27,16 @@ const fileFilter = (req, file, cb) => {
   };
 
   if (allowedTypes[file.fieldname]) {
-    cb(null, allowedTypes[file.fieldname].includes(file.mimetype) || new Error(`Only ${allowedTypes[file.fieldname].join(", ")} formats are allowed for ${file.fieldname}`));
+    if (allowedTypes[file.fieldname].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Only ${allowedTypes[file.fieldname].join(", ")} formats are allowed for ${file.fieldname}`));
+    }
   } else {
-    cb(new Error("Unknown field name"));
+    cb(new Error("Unknown field name. Allowed fields: images, sertifikat"));
   }
 };
+
 
 // Konfigurasi upload
 const upload = multer({
