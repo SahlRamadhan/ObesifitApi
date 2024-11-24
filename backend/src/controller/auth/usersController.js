@@ -3,6 +3,7 @@ import path from "path";
 import userModels from "../../models/userTable.js";
 import roleModels from "../../models/roleTable.js";
 import { SendOtpEmail, generateOtp } from "../../services/emailServices.js";
+import { sendVerificationEmail, sendRejectionEmail } from "../../services/seendVerifikasiDokter.js";
 import bcrypt from "bcrypt";
 import fs from "fs";
 
@@ -55,7 +56,6 @@ export const getUserById = async (req, res) => {
   }
 };
 
-// Controller post
 export const createUser = async (req, res) => {
   const { name, email, telepon, password, confirmPassword, jenis_profesi } = req.body;
 
@@ -75,34 +75,34 @@ export const createUser = async (req, res) => {
     });
   }
 
-  const role = await roleModels.findOne({ where: { id: role_id } });
-  if (!role) {
-    return res.status(400).json({
-      status: 400,
-      message: "Role tidak ditemukan",
-    });
-  }
-
-  // Cek apakah password sesuai dengan confirmPassword
-  if (password !== confirmPassword) {
-    return res.status(400).json({
-      status: 400,
-      message: "Password dan Konfirmasi Password tidak sama",
-    });
-  }
-
   try {
+    // Cek role
+    const role = await roleModels.findOne({ where: { id: role_id } });
+    if (!role) {
+      return res.status(400).json({
+        status: 400,
+        message: "Role tidak ditemukan",
+      });
+    }
+
+    // Validasi password
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        status: 400,
+        message: "Password dan Konfirmasi Password tidak sama",
+      });
+    }
+
     // Hash password
     const hashPassword = await bcrypt.hash(password, 10);
 
     let images = null;
     let sertifikat = null;
 
+    // Jika dokter, validasi sertifikat
     if (isDoctor) {
-      // Jika dokter, periksa apakah sertifikat diunggah
       sertifikat = req.files && req.files.sertifikat ? path.basename(req.files.sertifikat[0].path) : null;
 
-      // Jika sertifikat tidak ada
       if (!sertifikat) {
         return res.status(400).json({
           status: 400,
@@ -111,25 +111,34 @@ export const createUser = async (req, res) => {
       }
     }
 
+    // Atur gambar default jika tidak ada file yang diunggah
+    if (req.files && req.files.images) {
+      images = path.basename(req.files.images[0].path); // Gunakan gambar yang diunggah
+    } else {
+      images = "profile-1.jpg";
+    }
+
     const { otp, otpExpires } = generateOtp();
 
-    // Buat data user baru
+    // Simpan data user baru
     const newUser = await userModels.create({
       name,
       email,
       telepon,
       role_id,
       password: hashPassword,
-      images,
+      images, // Path gambar (default atau yang diunggah)
       jenis_profesi: isDoctor ? jenis_profesi : null,
       sertifikat: isDoctor ? sertifikat : null,
       otp: isDoctor ? null : otp,
       otpExpires: isDoctor ? null : otpExpires,
       isVerified: isDoctor ? true : false,
-      isVerifiedByAdmin: false,
+      isVerifiedByAdmin: null,
     });
 
-    await SendOtpEmail(email, otp);
+    if (!isDoctor) {
+      await SendOtpEmail(email, otp);
+    }
 
     res.status(201).json({
       status: 201,
@@ -137,6 +146,7 @@ export const createUser = async (req, res) => {
       data: newUser,
     });
   } catch (error) {
+    console.error("Error di backend:", error.message);
     res.status(500).json({
       message: "Gagal membuat data",
       serverMessage: error.message,
@@ -213,6 +223,8 @@ export const verifyDoctor = async (req, res) => {
     user.isVerifiedByAdmin = true;
     await user.save();
 
+    await sendVerificationEmail(user.email, user.name);
+
     res.status(200).json({
       status: 200,
       message: "Dokter berhasil diverifikasi oleh admin",
@@ -223,6 +235,27 @@ export const verifyDoctor = async (req, res) => {
       message: "Verifikasi dokter gagal",
       serverMessage: error.message,
     });
+  }
+};
+
+export const rejectDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await userModels.findByPk(id);
+    if (!user || user.role_id !== 3) {
+      return res.status(404).json({ message: "Dokter tidak ditemukan." });
+    }
+
+    user.isVerifiedByAdmin = false;
+    await user.save();
+
+    await sendRejectionEmail(user.email, user.name);
+
+    res.status(200).json({ message: "Status dokter berhasil diperbarui menjadi tidak terverifikasi." });
+  } catch (error) {
+    console.error("Error rejecting doctor:", error.message);
+    res.status(500).json({ message: "Gagal memperbarui status dokter.", serverMessage: error.message });
   }
 };
 
@@ -302,9 +335,4 @@ export const deleteAllUsers = async (req, res) => {
 const getHashedPassword = async (newPassword, currentPassword) => {
   if (!newPassword) return currentPassword; // Return current password if no new password provided
   return await bcrypt.hash(newPassword, 10); // Hash the new password
-};
-
-const deletePreviousFile = (directory, fileName) => {
-  const filePath = path.join(directory, fileName);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath); // Delete file if it exists
 };

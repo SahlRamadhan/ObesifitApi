@@ -1,31 +1,47 @@
 import userModels from "../../models/userTable.js";
-import { SendOtpEmail, generateOtp } from "../../services/emailServices.js";
+import { resetPasswordOtp, generateOtp } from "../../services/resetPassword.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-// Controller verify otp
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
   try {
     const user = await userModels.findOne({ where: { email } });
+
     if (!user) {
+      console.log("Email tidak ditemukan:", email);
       return res.status(400).json({ message: "Email tidak ditemukan." });
     }
 
-    // Cek apakah OTP benar dan belum kadaluarsa
-    if (user.otp !== otp || user.otpExpires < new Date()) {
-      return res.status(400).json({ message: "OTP salah atau telah kadaluarsa." });
+    console.log("OTP di database:", user.otp);
+    console.log("OTP yang diterima:", otp);
+    console.log("Waktu kadaluarsa di database:", user.otpExpires);
+    console.log("Waktu sekarang:", new Date());
+
+    // Cek apakah OTP benar
+    if (user.otp !== otp) {
+      console.error("OTP tidak cocok.");
+      return res.status(400).json({ message: "OTP salah." });
     }
 
-    // Verifikasi berhasil, hapus OTP dari database
+    // Cek apakah OTP belum kadaluarsa
+    if (new Date(user.otpExpires) < new Date()) {
+      console.error("OTP telah kadaluarsa.");
+      return res.status(400).json({ message: "OTP telah kadaluarsa." });
+    }
+
+    // Verifikasi berhasil
     await user.update({ otp: null, otpExpires: null, isVerified: true });
+    console.log("OTP diverifikasi dan data user diperbarui.");
 
     res.status(200).json({ message: "Verifikasi email berhasil." });
   } catch (error) {
-    res.status(500).json({ message: "Terjadi kesalahan", serverMessage: error.message });
+    console.error("Error di backend:", error.message);
+    res.status(500).json({ message: "Terjadi kesalahan di server", error: error.message });
   }
 };
+
 
 // Controller resend otp
 export const resendOtp = async (req, res) => {
@@ -50,7 +66,7 @@ export const resendOtp = async (req, res) => {
 
 // Controller request reset password
 export const requestResetPassword = async (req, res) => {
-  const { email } = req.body;
+  const { email} = req.body;
 
   try {
     const user = await userModels.findOne({ where: { email } });
@@ -61,7 +77,7 @@ export const requestResetPassword = async (req, res) => {
     const { otp, otpExpires } = generateOtp();
     await user.update({ otp, otpExpires });
 
-    await SendOtpEmail(email, otp);
+    await resetPasswordOtp(email, otp, user.name);
 
     res.status(200).json({ message: "OTP berhasil dikirim ke email Anda." });
   } catch (error) {
