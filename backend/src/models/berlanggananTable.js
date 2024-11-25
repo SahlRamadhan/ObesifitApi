@@ -60,11 +60,11 @@ const Berlangganan = sequelize.define(
   }
 );
 
-Berlangganan.belongsTo(User, { foreignKey: "id_user" });
-Berlangganan.belongsTo(Status, { foreignKey: "id_status" });
+Berlangganan.belongsTo(User, { foreignKey: "id_user", as: "user", onDelete: "CASCADE" });
+Berlangganan.belongsTo(Status, { foreignKey: "id_status", as: "status", onDelete: "CASCADE" });
 
-User.hasMany(Berlangganan, { foreignKey: "id_user" });
-Status.hasMany(Berlangganan, { foreignKey: "id_status" });
+User.hasMany(Berlangganan, { foreignKey: "id_user", onDelete: "CASCADE" });
+Status.hasMany(Berlangganan, { foreignKey: "id_status", onDelete: "CASCADE" });
 
 const syncDatabase = async () => {
   try {

@@ -25,7 +25,7 @@ export const refreshToken = async (req, res) => {
       }
 
       // Buat access token baru
-      const accessToken = jwt.sign({ userId: user.id, name: user.name, email: user.email, role_id: user.role_id }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+      const accessToken = jwt.sign({ userId: user.id, name: user.name, email: user.email, role_id: user.role_id, images: user.images, telepon: user.telepon, }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
 
       // Kembalikan access token ke client
       res.json({
@@ -36,6 +36,7 @@ export const refreshToken = async (req, res) => {
           email: user.email,
           role_id: user.role_id,
           images: user.images, 
+          telepon: user.telepon,
         },
       });
     });

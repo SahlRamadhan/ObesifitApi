@@ -28,6 +28,9 @@ app.use(
   })
 );
 
+// Middleware untuk melayani file statis
+app.use("/public", express.static("public")); // Tambahkan ini
+
 const server = http.createServer(app);
 
 // routes

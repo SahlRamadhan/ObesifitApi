@@ -76,7 +76,6 @@ export const createUser = async (req, res) => {
   }
 
   try {
-    // Cek role
     const role = await roleModels.findOne({ where: { id: role_id } });
     if (!role) {
       return res.status(400).json({
@@ -85,7 +84,6 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Validasi password
     if (password !== confirmPassword) {
       return res.status(400).json({
         status: 400,
@@ -93,15 +91,16 @@ export const createUser = async (req, res) => {
       });
     }
 
-    // Hash password
     const hashPassword = await bcrypt.hash(password, 10);
 
     let images = null;
     let sertifikat = null;
 
+    const baseUrl = `${req.protocol}://${req.get("host")}`; // Base URL untuk file
+
     // Jika dokter, validasi sertifikat
     if (isDoctor) {
-      sertifikat = req.files && req.files.sertifikat ? path.basename(req.files.sertifikat[0].path) : null;
+      sertifikat = req.files && req.files.sertifikat ? `${baseUrl}/public/sertifikat/${path.basename(req.files.sertifikat[0].path)}` : null;
 
       if (!sertifikat) {
         return res.status(400).json({
@@ -113,23 +112,22 @@ export const createUser = async (req, res) => {
 
     // Atur gambar default jika tidak ada file yang diunggah
     if (req.files && req.files.images) {
-      images = path.basename(req.files.images[0].path); // Gunakan gambar yang diunggah
+      images = `${baseUrl}/public/images/${path.basename(req.files.images[0].path)}`; // Gambar yang diunggah
     } else {
-      images = "profile-1.jpg";
+      images = `${baseUrl}/public/images/profile-1.jpg`; // Gambar default
     }
 
     const { otp, otpExpires } = generateOtp();
 
-    // Simpan data user baru
     const newUser = await userModels.create({
       name,
       email,
       telepon,
       role_id,
       password: hashPassword,
-      images, // Path gambar (default atau yang diunggah)
+      images, // URL gambar lengkap
       jenis_profesi: isDoctor ? jenis_profesi : null,
-      sertifikat: isDoctor ? sertifikat : null,
+      sertifikat: isDoctor ? sertifikat : null, // URL sertifikat lengkap
       otp: isDoctor ? null : otp,
       otpExpires: isDoctor ? null : otpExpires,
       isVerified: isDoctor ? true : false,
@@ -159,45 +157,65 @@ export const updateUser = async (req, res) => {
   try {
     const user = await userModels.findOne({ where: { id: req.params.id } });
     if (!user) {
-      return res.status(404).json({ status: 404, message: "User tidak ditemukan" });
+      return res.status(404).json({ message: "User tidak ditemukan." });
     }
 
-    // Hash password hanya jika ada permintaan perubahan password
+    // Validasi input
+    if (!req.body.name || !req.body.email) {
+      return res.status(400).json({ message: "Nama dan email wajib diisi." });
+    }
+
+    // Validasi format email
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(req.body.email)) {
+      return res.status(400).json({ message: "Format email tidak valid." });
+    }
+
+    // Cek unik untuk email
+    if (req.body.email !== user.email) {
+      const emailExists = await userModels.findOne({ where: { email: req.body.email } });
+      if (emailExists) {
+        return res.status(400).json({ message: "Email sudah digunakan oleh pengguna lain." });
+      }
+    }
+
+    // Validasi password
     const hashPassword = await getHashedPassword(req.body.password, user.password);
     if (hashPassword.error) {
       return res.status(400).json(hashPassword.error);
     }
-
     if (req.body.password && req.body.password !== req.body.confirmPassword) {
       return res.status(400).json({
-        status: 400,
-        message: "Password dan Konfirmasi Password Tidak Sama",
+        message: "Password dan Konfirmasi Password tidak sama.",
       });
     }
 
-    // Siapkan data yang akan diperbarui
-    const updatedData = {
-      name: req.body.name || user.name,
-      email: req.body.email || user.email,
-      telepon: req.body.telepon || user.telepon,
-      password: hashPassword.newPassword || user.password,
-      images: req.files && req.files.images ? path.basename(req.files.images[0].path) : user.images, // Pastikan ini benar
-    };
-
-    if (user.role_id === 3) {
-      updatedData.jenis_profesi = req.body.jenis_profesi || user.jenis_profesi;
-
-      if (req.files && req.files.sertifikat) {
-        updatedData.sertifikat = path.basename(req.files.sertifikat[0].path);
-      }
+    // Validasi gambar
+    let imagePath = user.images;
+    if (req.files && req.files.images) {
+      const file = req.files.images[0];
+      // Tambahkan base URL untuk gambar
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      imagePath = `${baseUrl}/public/images/${path.basename(file.path)}`; // URL lengkap gambar
     }
 
-    // Update data user
+    // Siapkan data yang diperbarui
+    const updatedData = {
+      name: req.body.name,
+      email: req.body.email,
+      telepon: req.body.telepon || user.telepon,
+      password: user.password,
+      images: imagePath,
+    };
+
+    // Update user
     await userModels.update(updatedData, { where: { id: req.params.id } });
 
+    // Kirim data terbaru ke frontend
+    const updatedUser = await userModels.findOne({ where: { id: req.params.id } });
     res.status(200).json({
       status: 200,
       message: "Update Data Success",
+      data: updatedUser,
     });
   } catch (error) {
     res.status(500).json({
@@ -207,6 +225,7 @@ export const updateUser = async (req, res) => {
   }
 };
 
+// Controller verify
 export const verifyDoctor = async (req, res) => {
   try {
     const { id } = req.params;
@@ -256,6 +275,29 @@ export const rejectDoctor = async (req, res) => {
   } catch (error) {
     console.error("Error rejecting doctor:", error.message);
     res.status(500).json({ message: "Gagal memperbarui status dokter.", serverMessage: error.message });
+  }
+};
+
+export const statisticUsers = async (req, res) => {
+  try {
+    const totalUsers = await userModels.count({
+      where: { role_id: 2 }, // Hanya role user
+    });
+
+    const activeUsers = await userModels.count({
+      where: {
+        role_id: 2,
+        isVerified: true, // Akun terverifikasi dianggap aktif
+      },
+    });
+
+    res.status(200).json({
+      totalUsers,
+      activeUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching user stats:", error.message);
+    res.status(500).json({ message: "Gagal mengambil statistik pengguna" });
   }
 };
 

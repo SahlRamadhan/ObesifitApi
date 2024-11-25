@@ -30,9 +30,9 @@ export const loginUser = async (req, res) => {
     if (!match) return res.status(400).json({ msg: "Password salah" });
 
     // Buat token hanya jika role valid
-    const { id, name, images, role_id } = user;
-    const accessToken = jwt.sign({ userId: id, name, email, role_id, images }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
-    const refreshToken = jwt.sign({ userId: id, name, email, role_id, images }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
+    const { id, name, images, role_id, telepon } = user;
+    const accessToken = jwt.sign({ userId: id, name, email, role_id, images, telepon }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ userId: id, name, email, role_id, images, telepon }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "1d" });
 
     await User.update({ refreshToken }, { where: { id } });
 
@@ -48,6 +48,8 @@ export const loginUser = async (req, res) => {
         name,
         images,
         role_id,
+        email,
+        telepon,
       },
     });
   } catch (error) {
