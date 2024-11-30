@@ -1,10 +1,9 @@
 import express from "express";
-import { createKalkulatorBMI } from "../controller/kalkulatorbmi/kalkulatorBMIController.js";
-import { verifyToken } from "../middleware/VerifyToken.js";
-import { verifyRole } from "../middleware/RoleMiddleware.js";
+import { createKalkulatorBMI } from "../controller/kalkulatorbmi/KalkulatorBMIController.js";
+
 
 const router = express.Router();
 
-router.post("/create", verifyToken, verifyRole([2]), createKalkulatorBMI);
+router.post("/create", createKalkulatorBMI);
 
 export default router;

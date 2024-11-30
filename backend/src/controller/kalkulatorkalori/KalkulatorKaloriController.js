@@ -1,12 +1,12 @@
 import KalkulatorKalori from "../../models/kalkulatorKaloriTable.js";
 import JenisKelamin from "../../models/jenisKelaminTable.js";
-import User from "../../models/userTable.js";
+
 
 export const createKalkulatorKalori = async (req, res) => {
   try {
-    const { id_jenis_kelamin, berat_badan, tinggi_badan, usia } = req.body;
+    const { id_jenis_kelamin, berat_badan, tinggi_badan, usia, id_user } = req.body;
 
-    const id_user = req.userId;
+    
     if (!id_jenis_kelamin || !berat_badan || !tinggi_badan || !usia) {
       return res.status(400).json({ message: "Data tidak lengkap" });
     }

@@ -1,23 +1,19 @@
 import KalkulatorBMITable from "../../models/kalkulatorBMITbable.js";
-import User from "../../models/userTable.js";
 import Kategori from "../../models/kategoriTable.js";
 import JenisKelamin from "../../models/jenisKelaminTable.js";
 
 export const createKalkulatorBMI = async (req, res) => {
   try {
-    const { id_jenis_kelamin, berat_badan, tinggi_badan, usia } = req.body;
+    const { id_jenis_kelamin, berat_badan, tinggi_badan, usia, id_user } = req.body;
 
-    // Ambil id_user dari middleware verifyToken
-    const id_user = req.userId;
+    
 
     if (!id_jenis_kelamin || !berat_badan || !tinggi_badan || !usia) {
       return res.status(400).json({ message: "Data tidak lengkap" });
     }
 
-    // Hitung BMI
     const bmi = berat_badan / ((tinggi_badan / 100) * (tinggi_badan / 100));
 
-    // Tentukan kategori berdasarkan BMI
     let id_kategori, kategori;
     if (bmi < 18.5) {
       id_kategori = 1;
@@ -33,7 +29,6 @@ export const createKalkulatorBMI = async (req, res) => {
       kategori = "Obesitas";
     }
 
-    // Simpan ke database
     const kalkulatorBMI = await KalkulatorBMITable.create({
       id_user,
       id_kategori,
@@ -44,13 +39,17 @@ export const createKalkulatorBMI = async (req, res) => {
       bmi,
     });
 
-    // Kembalikan hasil BMI dan kategori
+    // Ambil kategori dan jenis kelamin terkait
+    const kategoriData = await Kategori.findByPk(id_kategori);
+    const jenisKelaminData = await JenisKelamin.findByPk(id_jenis_kelamin);
+
     res.status(201).json({
       message: "Hasil BMI berhasil dihitung",
       data: {
         kalkulatorBMI,
         bmi: bmi.toFixed(1),
-        kategori,
+        kategori: kategoriData.kategori,
+        jenis_kelamin: jenisKelaminData.jenis_kelamin,
       },
     });
   } catch (error) {
