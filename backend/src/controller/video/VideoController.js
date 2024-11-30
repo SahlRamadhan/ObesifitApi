@@ -1,42 +1,53 @@
 import Video from "../../models/videoTable.js";
 import VideoFile from "../../models/videoFileTable.js";
 import fs from "fs";
+import dovenot from "dotenv";
+dovenot.config();
 
-//route create
+const BASE_URL = process.env.BASE_URL || "http://localhost:4000/public/";
+
+const deleteOldFile = (filePath) => {
+  const fullPath = `./public/${filePath}`; // Tambahkan path lengkap ke direktori public
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath);
+  }
+};
+
+
+// Create Video
 export const createVideo = async (req, res) => {
   try {
     const { judul, deskripsi } = req.body;
-    // Pastikan kedua file telah diupload
-    if (!req.files || !req.files.video || !req.files.thumbnail) {
-      return res.status(400).json({ message: "Video dan thumbnail harus diupload" });
-    }
 
-    const video = req.files.video[0].path;
-    const thumbnail = req.files.thumbnail[0].path;
+    const url = req.files.url ? `video/${req.files.url[0].filename}` : null;
+    const thumbnail = req.files.thumbnail ? `thumbnails/video/${req.files.thumbnail[0].filename}` : null;
 
-    const videoData = await Video.create({
-      judul,
-      deskripsi,
-    });
-
-    // Create the video file record
+    const videoData = await Video.create({ judul, deskripsi });
     const videoFile = await VideoFile.create({
       video_id: videoData.id,
-      url: video,
-      thumbnail: thumbnail,
+      url,
+      thumbnail,
     });
 
-    res.status(201).json({ message: "Video created successfully", videoData, videoFile });
+    res.status(201).json({
+      message: "Video created successfully",
+      videoData,
+      videoFile: {
+        ...videoFile.dataValues,
+        url: url ? `${BASE_URL}${url}` : null,
+        thumbnail: thumbnail ? `${BASE_URL}${thumbnail}` : null,
+      },
+    });
   } catch (error) {
     if (req.files) {
-      if (req.files.thumbnail) fs.unlinkSync(req.files.thumbnail[0].path);
-      if (req.files.video) fs.unlinkSync(req.files.video[0].path);
+      if (req.files.thumbnail) deleteOldFile(req.files.thumbnail[0].path);
+      if (req.files.url) deleteOldFile(req.files.url[0].path);
     }
     res.status(500).json({ message: "Failed to create video", error });
   }
 };
 
-//route get
+// Route: Get All Videos
 export const getAllVideos = async (req, res) => {
   try {
     const videos = await Video.findAll({
@@ -48,13 +59,23 @@ export const getAllVideos = async (req, res) => {
         },
       ],
     });
-    res.status(200).json(videos);
+
+    const updateVideo = videos.map((video) => {
+      const updatedFiles = video.video_files.map((file) => ({
+        ...file.dataValues,
+        url: file.url ? `${BASE_URL}${file.url}` : null,
+        thumbnail: file.thumbnail ? `${BASE_URL}${file.thumbnail}` : null,
+      }));
+      return { ...video.dataValues, video_files: updatedFiles };
+    });
+
+    res.status(200).json(updateVideo);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch videos", error });
+    res.status(500).json({ message: "Gagal mengambil video", error });
   }
 };
 
-//route get by id
+// Route: Get Video By ID
 export const getVideoById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -70,82 +91,104 @@ export const getVideoById = async (req, res) => {
     });
 
     if (!video) {
-      return res.status(404).json({ message: "Video not found" });
+      return res.status(404).json({ message: "Video tidak ditemukan" });
     }
 
-    res.status(200).json(video);
+    const updatedFiles = video.video_files.map((file) => ({
+      ...file.dataValues,
+      url: file.url ? `${BASE_URL}${file.url}` : null,
+      thumbnail: file.thumbnail ? `${BASE_URL}${file.thumbnail}` : null,
+    }));
+
+    res.status(200).json({ ...video.dataValues, video_files: updatedFiles });
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch video", error });
+    res.status(500).json({ message: "Gagal mengambil video", error });
   }
 };
 
-//route update
 export const updateVideo = async (req, res) => {
   try {
     const { id } = req.params;
     const { judul, deskripsi } = req.body;
 
+    // Cari video berdasarkan ID
     const video = await Video.findByPk(id);
-    if (!video) {
-      return res.status(404).json({ message: "Video not found" });
-    }
+    if (!video) return res.status(404).json({ message: "Video not found" });
 
-    // Update main video details
+    // Update judul dan deskripsi jika ada
     video.judul = judul || video.judul;
     video.deskripsi = deskripsi || video.deskripsi;
     await video.save();
 
-    // If new files are uploaded, replace them
+    // Update file video atau thumbnail jika ada
     if (req.files) {
       const videoFile = await VideoFile.findOne({ where: { video_id: id } });
+      if (!videoFile) return res.status(404).json({ message: "Video file not found" });
 
-      if (!videoFile) {
-        return res.status(404).json({ message: "Video file not found" });
+      // Update video file
+      if (req.files.url) {
+        deleteOldFile(videoFile.url); // Hapus file lama
+        videoFile.url = `video/${req.files.url[0].filename}`; // Simpan file baru
       }
 
-      if (req.files.video) {
-        fs.unlinkSync(videoFile.url); // Delete old video file
-        videoFile.url = req.files.video[0].path;
-      }
-
+      // Update thumbnail
       if (req.files.thumbnail) {
-        fs.unlinkSync(videoFile.thumbnail); // Delete old thumbnail
-        videoFile.thumbnail = req.files.thumbnail[0].path;
+        deleteOldFile(videoFile.thumbnail); // Hapus file lama
+        videoFile.thumbnail = `thumbnails/video/${req.files.thumbnail[0].filename}`; // Simpan file baru
       }
 
+      // Simpan perubahan ke database
       await videoFile.save();
     }
 
-    res.status(200).json({ message: "Video updated successfully", video });
+    // Ambil data terbaru setelah update
+    const updatedVideo = await Video.findOne({
+      where: { id },
+      include: [
+        {
+          model: VideoFile,
+          as: "video_files",
+          attributes: ["id", "url", "thumbnail"],
+        },
+      ],
+    });
+
+    // Return data yang baru
+    res.status(200).json({
+      message: "Video updated successfully",
+      video: {
+        ...updatedVideo.dataValues,
+        video_files: updatedVideo.video_files.map((file) => ({
+          ...file.dataValues,
+          url: file.url ? `${BASE_URL}${file.url}` : null,
+          thumbnail: file.thumbnail ? `${BASE_URL}${file.thumbnail}` : null,
+        })),
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: "Failed to update video", error });
   }
 };
 
-//route delete
+
+// Delete Video
 export const deleteVideo = async (req, res) => {
   try {
     const { id } = req.params;
 
     const video = await Video.findByPk(id);
-    if (!video) {
-      return res.status(404).json({ message: "Video not found" });
-    }
+    if (!video) return res.status(404).json({ message: "Video not found" });
 
     const videoFile = await VideoFile.findOne({ where: { video_id: id } });
     if (videoFile) {
-      // Delete associated files
-      fs.unlinkSync(videoFile.url);
-      fs.unlinkSync(videoFile.thumbnail);
+      deleteOldFile(videoFile.url);
+      deleteOldFile(videoFile.thumbnail);
       await videoFile.destroy();
     }
 
-    // Delete the video record
     await video.destroy();
-
     res.status(200).json({ message: "Video deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete video", error });
   }
 };
-

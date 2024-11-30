@@ -1,48 +1,47 @@
 import multer from "multer";
-import path from "path";
 
 // Storage setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (file.fieldname === "video") {
-      cb(null, "public/video"); // Save videos in 'public/videos'
-    } else if (file.fieldname === "thumbnail") {
-      cb(null, "public/thumbnails"); // Save thumbnails in 'public/thumbnails'
+    const destinations = {
+      url: "public/video",
+      thumbnail: "public/thumbnails/video",
+    };
+
+    const dest = destinations[file.fieldname];
+    if (dest) {
+      cb(null, dest);
     } else {
-      cb(new Error("Invalid fieldname"), false);
+      cb(new Error("Invalid fieldname"));
     }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + file.originalname.replace(/\s/g, "_");
-    if (file.fieldname === "video") {
-      cb(null, "video-" + uniqueSuffix);
-    } else if (file.fieldname === "thumbnail") {
-      cb(null, "thumbnail-" + uniqueSuffix);
-    }
+    cb(null, `${file.fieldname}-${uniqueSuffix}`);
   },
 });
 
-// File filter for video and image
+// File filter
 const fileFilter = (req, file, cb) => {
-  const allowedVideo = /mp4|avi|mkv/;
-  const allowedImage = /jpg|jpeg|png/;
-  const extname = path.extname(file.originalname).toLowerCase();
-  const mimetype = file.mimetype;
+  const allowedTypes = {
+    url: ["video/mp4", "video/avi", "video/mkv"],
+    thumbnail: ["image/jpeg", "image/png", "image/jpg"],
+  };
 
-  if (file.fieldname === "video" && allowedVideo.test(extname) && mimetype.startsWith("video/")) {
-    cb(null, true); // Allow video
-  } else if (file.fieldname === "thumbnail" && allowedImage.test(extname) && mimetype.startsWith("image/")) {
-    cb(null, true); // Allow image
+  if (allowedTypes[file.fieldname]?.includes(file.mimetype)) {
+    cb(null, true);
   } else {
-    cb(new Error("File type not allowed"), false); // Reject other files
+    cb(new Error(`Invalid file type for ${file.fieldname}`));
   }
 };
 
-// Multer instance
-export const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+// Konfigurasi upload dengan batasan ukuran file
+const uploadVideo = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // Maksimum ukuran file 50MB
+  },
 });
 
-
-export default upload;
+export default uploadVideo;

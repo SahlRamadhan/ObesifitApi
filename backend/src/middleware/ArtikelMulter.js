@@ -1,41 +1,44 @@
 // multerArticle.js
 import multer from "multer";
-import path from "path";
 
 // Fungsi untuk menentukan storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (file.fieldname === "thumbnail") {
-      cb(null, "public/thumbnails");
-    } else if (file.fieldname === "images") {
-      cb(null, "public/images/articles");
+    const destinations = {
+      thumbnail: "public/thumbnails/articles",
+      images: "public/images/articles",
+    };
+
+    const dest = destinations[file.fieldname];
+    if (dest) {
+      cb(null, dest);
     } else {
       cb(new Error("Invalid fieldname"));
     }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + file.originalname.replace(/\s/g, "_");
-    if (file.fieldname === "thumbnail") {
-      cb(null, "thumbnail-" + uniqueSuffix);
-    } else if (file.fieldname === "images") {
-      cb(null, "article-" + uniqueSuffix);
-    } else {
-      cb(new Error("Invalid fieldname"));
-    }
+    cb(null, `${file.fieldname}-${uniqueSuffix}`);
   },
 });
 
-// Konfigurasi upload
+// File filter
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid file type"));
+  }
+};
+
+// Konfigurasi upload dengan batasan ukuran file
 const uploadArticle = multer({
   storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid file type"));
-    }
-  }
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // Maksimum ukuran file 5MB
+  },
 });
 
 export default uploadArticle;
