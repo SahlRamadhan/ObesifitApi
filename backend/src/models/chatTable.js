@@ -1,6 +1,7 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database.js";
 import ConsultationSession from "./consultationSessionTable.js";
+import User from "./userTable.js";
 
 const Chat = sequelize.define(
   "Chat",
@@ -36,7 +37,11 @@ const Chat = sequelize.define(
 );
 
 Chat.belongsTo(ConsultationSession, { foreignKey: "id_consultation_session", as: "consultation_session", });
+Chat.belongsTo(User, { foreignKey: "sender_id", as: "sender" });
+
 ConsultationSession.hasMany(Chat, { foreignKey: "id_consultation_session", as: "chat", });
+User.hasMany(Chat, { foreignKey: "sender_id", as: "messages" });
+
 
 const syncDatabase = async () => {
   try {

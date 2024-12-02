@@ -1,13 +1,27 @@
 import express from "express";
-import { createChat, fetchChat, fetchSession, sendMessage } from "../controller/chat/ChatController.js";
-import { verifyToken } from "../middleware/VerifyToken.js";
-import { verifyRole } from "../middleware/RoleMiddleware.js";
+import { createChat, fetchChat, fetchSession, sendMessage, closeSession, deleteSessionAndMessages, getAllSessions } from "../controller/chat/ChatController.js";
 
 const router = express.Router();
 
-router.post("/create", verifyToken, createChat);
-router.get("/session/:sessionId", verifyToken, fetchChat);
-router.get("/session/:role/:id", verifyToken, fetchSession);
-router.post("/send", verifyToken, sendMessage);
+// Membuat atau mendapatkan sesi konsultasi
+router.post("/create", createChat);
+
+// Mengambil riwayat chat untuk sesi tertentu
+router.get("/session/:sessionId", fetchChat);
+
+// Mengambil daftar sesi berdasarkan role
+router.get("/session/:role/:id", fetchSession);
+
+// Mengambil semua data sesi konsultasi
+router.get("/session", getAllSessions);
+
+// Mengirim pesan baru
+router.post("/send", sendMessage);
+
+// Menutup sesi konsultasi
+router.post("/close/:sessionId", closeSession);
+
+// Menghapus pesan
+router.delete("/delete/:sessionId", deleteSessionAndMessages);
 
 export default router;
