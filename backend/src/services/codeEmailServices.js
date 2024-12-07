@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 dotenv.config();
 
-export const SendPaymentEmail = async (email, codePembayaran, jumlahPembayaran) => {
+export const SendPaymentEmail = async (email, codePembayaran, jumlahPembayaran, name) => {
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 587,
@@ -19,7 +19,7 @@ export const SendPaymentEmail = async (email, codePembayaran, jumlahPembayaran) 
     to: email,
     subject: "Kode Pembayaran Anda",
     text: `
-      Hi there,
+      Hi ${name},
 
       Berikut adalah detail pembayaran Anda:
 
